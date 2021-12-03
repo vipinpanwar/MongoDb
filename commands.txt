@@ -1,0 +1,126 @@
+>> mongo - It is client which connect you the database server.
+>> mongod - It start the database server.
+
+
+1.) show dbs : to show the databases.
+2.) show collecttions : to show the collections inside the database.
+3.) use database/collection name : to use particular collection or database.
+4.) db.collectionName.find().pretty(); to get all the data.
+
+CRUD 
+1.) create 
+        bd.insertMany() or db.insertOne()
+2.) read
+        bd.find() or db.findOne()
+3.) update
+        db.updateOne() or db.updateMany();
+    example :  db.flightData.updateMany({},{$set : {marker : "delete"}});
+4.) delete 
+        db.deleteOne() or db.deleteMany();
+
+
+********************Read****************************
+        1.) Projection.
+        if we want to get the specific fields from the database then we use the projection.
+                db.passengers.find({} , { name : 1 , _id : 0}).pretty();
+                above find(filter , projection); where name is a field in the collection and 1 means to show and 0 means to hide.
+
+
+
+
+****************Update*******************
+1.) UpdateMany({},{$set : {marker : "delete"}}); without $ sign it does not work.
+2.) UpdateOne ({},{$set : {marker : "delete"}}); without $ sign it does not work.
+3.) Update({},{$set : {marker : "delete"}}); 
+        and 
+    Update({},{marker : "delete"});
+    Update works with or without $ sign. 
+    with $ sign - It just update the object, similar to updateMany.
+    without $ sign - It replace the whole object so it is always recommend to use replaceOne istead of update method when 
+                     we have to replace object,It behave like updateOne().
+
+  ***upsert***
+  // if updateOne operation does not found the any document for the filter object, then the upsert will insert the new entry
+  // we need to give third argument for this.
+db.users.updateOne({name: "Maria"}, {$set: {age: 26, hobbies: [{title: "Good food", frequency: 1}], isSporty: true}})
+db.users.updateOne({name: "Maria"}, {$set: {age: 26, hobbies: [{title: "Good food", frequency: 1}], isSporty: true}}, {upsert: true})
+
+ >> when we need to update the specific object in the array, below hobbies is the array.
+ db.users.updateMany(
+  { hobbies: { $elemMatch: { title: 'sports', frequency: { $gte: 3 } } } },
+  { $set: { 'hobbies.$.highFrequenccy': true } }
+);
+
+ >> To update each object of the array, we need to  use [] else it will only update the first matching object .
+ db.users.updateMany({totalAge: {$gte: 30}}, {$inc: {"hobbies.$[].frequency": -1}})
+
+ >> finding and updating specific field in the array. [el], here el is an identifier.
+ db.users.updateMany(
+  { 'hobbies.frequency': { $gte: 2 } },
+  { $set: { 'hobbies.$[el].goodFrequency': true } },
+  { arrayFilters: [{ 'el.frequency': { $gt: 2 } }] }
+);
+ 
+
+4.) replaceOne - replace the first matching document.
+
+Qn : How to delete/remove the property from the document?
+
+**********************Embeded documents****************************
+1.) up to 100 levels of nesting is allowed.
+2.) A document max size is 16 mb.
+
+
+********************Insert*******************
+>> What is ordered insert?
+ans : Every element that we insert is process standalone and if one fail it cancel the entire insert operation but it does not
+      rollback the previous insertions.
+
+        >> we can change the above behaviour but will not rollback.
+
+      // this will fail on the first element (default behaviour) 
+db.hobbies.insertMany([{_id: "yoga", name: "Yoga"}, {_id: "cooking", name: "Cooking"}, {_id: "cycling", name: "Cycling"}], {ordered: true})
+ 
+// If insertion fail on the first object because that id already exist then mongodb process all other elements and do not cancel the insert operation.
+db.hobbies.insertMany([{_id: "yoga", name: "Yoga"}, {_id: "cooking", name: "Cooking"}, {_id: "cycling", name: "Cycling"}], {ordered: false})
+
+
+>> What is WriteConcern?
+ans : PFA in the slide folder. When we do any write operation in the mongodb then steps mentioned below happens
+
+1.) we write insert/write query in the shell or some tool/language.
+2.) That insert query goes to mongoDB server(mongod),
+3.) mongod use the storage engine(default is whitetiger) 
+        The storage engine save the data into memory which is most frequest
+        and if there is write data then the data is scheduled to save in the disk.
+
+  There is always the chance that server goes down or some technical error happen then 
+  memory data will be wipe out there is a chance we lost our insert/write data which is not 
+  put in the hardisk, for this problem storage engine use the ("Jornal") or todo file.
+
+  Journal(todo file) -
+        >> this file store in the harddisk.
+        >> this file store the write operation.
+        >> our write operation first saved in the journal then save in the secondary memory.
+
+  Question : If our file is saved in secondary memory then why the data does not save directly into the secondary memory?
+  ans : Journal file contains the one line or short discription of the insert query which take less amount of time when 
+        comparte to the data save in the hardisk. IN order to save the data in the harddisk , storage engine need to find       
+        the right position to insert and indexes also increase the time to save the data in the hardisk.
+
+        db.people.insertOne({name: "Mikaila", age: 17}, {writeConcern: {w: 1, j: true}})
+        w -> write flag if false that means it just acknowledged and does not provide _id and also does not gurantee data is write in memoruy or not.
+        j -> journal flag
+
+********Importing files************
+
+>> mongoimport <file-name> -d <databaseName> -c <collectionName> --jsonArray --drop     
+
+        --jsonArray : if multiple records in the file, by default it looks for single record.
+        --drop : if database collection already exist then drop it , by defaults it append the record.
+
+
+****************Operators**************************
+1.) Query operator - purpose is to locate/find data ex - $eq
+2.) Projection operator - purpose is to modify the presentation of the data. ex : $
+3.) Update Operator - purpose is to modify+add additional data ex : $inc
